@@ -48,6 +48,17 @@ def type_of_piece(piece):
         return None
     return piece[1] # 'K', 'A', 'B', 'N', 'R', 'C', 'P'
 
+def is_friend_piece(board, r, c, side):
+    piece = board[r][c]
+    return piece != EMPTY and side_of_piece(piece) == side
+
+def is_enemy_piece(board, r, c, side):
+    piece = board[r][c]
+    return piece != EMPTY and side_of_piece(piece) != side
+
+def is_empty_piece(board, r, c):
+    return board[r][c] == EMPTY
+
 
 if __name__ == "__main__":
     pass
