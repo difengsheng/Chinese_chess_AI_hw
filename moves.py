@@ -1,5 +1,15 @@
 import copy
+from dataclasses import dataclass
 import chessboard
+
+
+@dataclass(frozen=True)
+class Move:
+	"""表示一步走法：起点(from)到终点(to)。"""
+	from_r: int
+	from_c: int
+	to_r: int
+	to_c: int
 
 
 def in_palace(side, r, c):
@@ -41,41 +51,41 @@ def blockers_between(board, from_r, from_c, to_r, to_c):
 	return count
 
 
-def _validate_king_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_king_move(board, move, side):
 	"""校验将/帅走法：九宫内直走一步。"""
-	if abs(to_r - from_r) + abs(to_c - from_c) != 1:
+	if abs(move.to_r - move.from_r) + abs(move.to_c - move.from_c) != 1:
 		return False
-	return in_palace(side, to_r, to_c)
+	return in_palace(side, move.to_r, move.to_c)
 
 
-def _validate_advisor_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_advisor_move(board, move, side):
 	"""校验士走法：九宫内斜走一步。"""
-	if abs(to_r - from_r) != 1 or abs(to_c - from_c) != 1:
+	if abs(move.to_r - move.from_r) != 1 or abs(move.to_c - move.from_c) != 1:
 		return False
-	return in_palace(side, to_r, to_c)
+	return in_palace(side, move.to_r, move.to_c)
 
 
-def _validate_elephant_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_elephant_move(board, move, side):
 	"""校验象走法：田字两格、象眼不堵、不可过河。"""
-	if abs(to_r - from_r) != 2 or abs(to_c - from_c) != 2:
+	if abs(move.to_r - move.from_r) != 2 or abs(move.to_c - move.from_c) != 2:
 		return False
 
-	eye_r = (from_r + to_r) // 2
-	eye_c = (from_c + to_c) // 2
+	eye_r = (move.from_r + move.to_r) // 2
+	eye_c = (move.from_c + move.to_c) // 2
 	if board[eye_r][eye_c] != chessboard.EMPTY:
 		return False
 
-	if side == chessboard.RED and to_r < 5:
+	if side == chessboard.RED and move.to_r < 5:
 		return False
-	if side == chessboard.BLACK and to_r > 4:
+	if side == chessboard.BLACK and move.to_r > 4:
 		return False
 	return True
 
 
-def _validate_knight_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_knight_move(board, move, side):
 	"""校验马走法：日字且马脚不被堵。"""
-	dr = to_r - from_r
-	dc = to_c - from_c
+	dr = move.to_r - move.from_r
+	dc = move.to_c - move.from_c
 	adr = abs(dr)
 	adc = abs(dc)
 
@@ -83,45 +93,45 @@ def _validate_knight_move(board, from_r, from_c, to_r, to_c, side):
 		return False
 
 	if adr == 2:
-		leg_r = from_r + (1 if dr > 0 else -1)
-		leg_c = from_c
+		leg_r = move.from_r + (1 if dr > 0 else -1)
+		leg_c = move.from_c
 	else:
-		leg_r = from_r
-		leg_c = from_c + (1 if dc > 0 else -1)
+		leg_r = move.from_r
+		leg_c = move.from_c + (1 if dc > 0 else -1)
 
 	return board[leg_r][leg_c] == chessboard.EMPTY
 
 
-def _validate_rook_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_rook_move(board, move, side):
 	"""校验车走法：同列或同行且中间无阻挡。"""
-	if from_r != to_r and from_c != to_c:
+	if move.from_r != move.to_r and move.from_c != move.to_c:
 		return False
-	return blockers_between(board, from_r, from_c, to_r, to_c) == 0
+	return blockers_between(board, move.from_r, move.from_c, move.to_r, move.to_c) == 0
 
 
-def _validate_cannon_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_cannon_move(board, move, side):
 	"""校验炮走法：平移不隔子，吃子需隔一子。"""
-	if from_r != to_r and from_c != to_c:
+	if move.from_r != move.to_r and move.from_c != move.to_c:
 		return False
 
-	block_count = blockers_between(board, from_r, from_c, to_r, to_c)
+	block_count = blockers_between(board, move.from_r, move.from_c, move.to_r, move.to_c)
 	if block_count < 0:
 		return False
 
-	target = board[to_r][to_c]
+	target = board[move.to_r][move.to_c]
 	if target == chessboard.EMPTY:
 		return block_count == 0
 
-	return block_count == 1 and chessboard.is_enemy_piece(board, to_r, to_c, side)
+	return block_count == 1 and chessboard.is_enemy_piece(board, move.to_r, move.to_c, side)
 
 
-def _validate_pawn_move(board, from_r, from_c, to_r, to_c, side):
+def _validate_pawn_move(board, move, side):
 	"""校验兵卒走法：不过河直进，过河后可平移。"""
-	dr = to_r - from_r
-	dc = to_c - from_c
+	dr = move.to_r - move.from_r
+	dc = move.to_c - move.from_c
 	forward = -1 if side == chessboard.RED else 1
 
-	if not has_crossed_river(side, from_r):
+	if not has_crossed_river(side, move.from_r):
 		return dr == forward and dc == 0
 
 	if dr == forward and dc == 0:
@@ -131,24 +141,24 @@ def _validate_pawn_move(board, from_r, from_c, to_r, to_c, side):
 	return False
 
 
-def _validate_piece_rule(board, from_r, from_c, to_r, to_c, side):
+def _validate_piece_rule(board, move, side):
 	"""按棋子类型分发到对应走法校验函数。"""
-	piece_type = chessboard.type_of_piece(board[from_r][from_c])
+	piece_type = chessboard.type_of_piece(board[move.from_r][move.from_c])
 
 	if piece_type == "K":
-		return _validate_king_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_king_move(board, move, side)
 	if piece_type == "A":
-		return _validate_advisor_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_advisor_move(board, move, side)
 	if piece_type == "B":
-		return _validate_elephant_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_elephant_move(board, move, side)
 	if piece_type == "N":
-		return _validate_knight_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_knight_move(board, move, side)
 	if piece_type == "R":
-		return _validate_rook_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_rook_move(board, move, side)
 	if piece_type == "C":
-		return _validate_cannon_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_cannon_move(board, move, side)
 	if piece_type == "P":
-		return _validate_pawn_move(board, from_r, from_c, to_r, to_c, side)
+		return _validate_pawn_move(board, move, side)
 	return False
 
 
@@ -178,11 +188,11 @@ def kings_face_to_face(board):
 	return blockers_between(board, rr, rc, br, bc) == 0
 
 
-def make_move_copy(board, from_r, from_c, to_r, to_c):
+def make_move_copy(board, move):
 	"""复制棋盘并执行一步走子。"""
 	new_board = copy.deepcopy(board)
-	new_board[to_r][to_c] = new_board[from_r][from_c]
-	new_board[from_r][from_c] = chessboard.EMPTY
+	new_board[move.to_r][move.to_c] = new_board[move.from_r][move.from_c]
+	new_board[move.from_r][move.from_c] = chessboard.EMPTY
 	return new_board
 
 
@@ -195,7 +205,8 @@ def is_square_attacked(board, target_r, target_c, by_side):
 				continue
 			if chessboard.side_of_piece(piece) != by_side:
 				continue
-			if _validate_piece_rule(board, r, c, target_r, target_c, by_side):
+			attack_move = Move(r, c, target_r, target_c)
+			if _validate_piece_rule(board, attack_move, by_side):
 				return True
 	return False
 
@@ -210,28 +221,28 @@ def is_in_check(board, side):
 	return is_square_attacked(board, king_pos[0], king_pos[1], enemy_side)
 
 
-def is_valid_move(board, from_r, from_c, to_r, to_c, side):
+def is_valid_move(board, move, side):
 	"""综合校验一步棋是否完全合法。"""
 	# 1) Basic legality checks
-	if not chessboard.in_board(from_r, from_c) or not chessboard.in_board(to_r, to_c):
+	if not chessboard.in_board(move.from_r, move.from_c) or not chessboard.in_board(move.to_r, move.to_c):
 		return False
-	if from_r == to_r and from_c == to_c:
+	if move.from_r == move.to_r and move.from_c == move.to_c:
 		return False
 
-	piece = board[from_r][from_c]
+	piece = board[move.from_r][move.from_c]
 	if piece == chessboard.EMPTY:
 		return False
 	if chessboard.side_of_piece(piece) != side:
 		return False
-	if chessboard.is_friend_piece(board, to_r, to_c, side):
+	if chessboard.is_friend_piece(board, move.to_r, move.to_c, side):
 		return False
 
 	# 2) Piece-specific movement
-	if not _validate_piece_rule(board, from_r, from_c, to_r, to_c, side):
+	if not _validate_piece_rule(board, move, side):
 		return False
 
 	# 3) Common checks after move: kings facing and self-check
-	next_board = make_move_copy(board, from_r, from_c, to_r, to_c)
+	next_board = make_move_copy(board, move)
 	if kings_face_to_face(next_board):
 		return False
 	if is_in_check(next_board, side):
@@ -253,8 +264,9 @@ def generate_legal_moves(board, side):
 
 			for to_r in range(chessboard.BOARD_ROWS):
 				for to_c in range(chessboard.BOARD_COLS):
-					if is_valid_move(board, from_r, from_c, to_r, to_c, side):
-						legal.append((from_r, from_c, to_r, to_c))
+					candidate = Move(from_r, from_c, to_r, to_c)
+					if is_valid_move(board, candidate, side):
+						legal.append(candidate)
 	return legal
 
 if __name__ == "__main__":
