@@ -11,5 +11,14 @@ def not_checkmate(board, side):
     return len(legal_moves) > 0
 
 
+def winner(board):
+    """判断当前棋盘状态的赢家。"""
+    if not not_checkmate(board, chessboard.RED):
+        return chessboard.BLACK
+    if not not_checkmate(board, chessboard.BLACK):
+        return chessboard.RED
+    return None
+
+
 if __name__ == "__main__":
     pass
