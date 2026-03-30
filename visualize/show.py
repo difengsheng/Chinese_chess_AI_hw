@@ -8,6 +8,7 @@
 import tkinter as tk
 from tkinter import ttk
 import chessboard
+import moves
 
 
 # 基础 UI 配置
@@ -171,41 +172,82 @@ def draw_pieces(canvas, board):
 
 
 
+def draw_selection(canvas, r, c):
+    """
+    职责：高亮当前选中的棋子。
+    使用一个稍大的外框表示选中。
+    """
+    canvas.delete("selection")
+    if r is None or c is None:
+        return
+    
+    x, y = board_to_pixel(r, c)
+    # 画一个比棋子稍大的虚线框
+    padding = PIECE_RADIUS + 5
+    canvas.create_rectangle(
+        x - padding, y - padding,
+        x + padding, y + padding,
+        outline="gold", width=3, dash=(4, 4), tags="selection"
+    )
 
-def main():
-    # 1. 创建基础布局
-    ui = build_layout()
+
+
+def draw_legal_targets(canvas, legal_moves):
+    """
+    职责：高亮可落子点。
+    legal_moves: 列表，元素为 Move 对象或 (r, c) 元组。
+    """
+    canvas.delete("targets")
+    for move in legal_moves:
+        # 兼容 Move 对象和元组
+        tr = move.to_r if hasattr(move, 'to_r') else move[0]
+        tc = move.to_c if hasattr(move, 'to_c') else move[1]
+        
+        x, y = board_to_pixel(tr, tc)
+        # 画一个小实心圆点作为提示
+        canvas.create_oval(
+            x - 5, y - 5, x + 5, y + 5,
+            fill="#228B22", stipple="gray50", tags="targets"
+        )
+
+
+
+def render_all(ui, board, selected_pos=None, legal_moves=None):
+    """
+    职责：统一重绘入口。
+    按图层顺序：背景 -> 棋子 -> 提示点 -> 选中框。
+    """
     canvas = ui["canvas"]
     
-    # 2. 绘制静态背景（网格、九宫格、河界）
-    draw_board_background(canvas)
-    
-    # 3. 初始化棋盘数据并绘制棋子
-    # 使用 chessboard.py 中的 init_board() 获取初始阵型
-    current_board = chessboard.init_board()
-    draw_pieces(canvas, current_board)
-    
-    # 4. 添加一个简单的点击测试
-    def on_click(event):
-        pos = pixel_to_board(event.x, event.y)
-        if pos:
-            r, c = pos
-            piece = current_board[r][c]
-            status = f"点击位置: 行{r}, 列{c} | 棋子: {piece}"
-        else:
-            status = "点击了棋盘外区域"
-        
-        ui["status_var"].set(status)
-        print(status)
+    # 1. 背景层 (如果背景是静态的，可以只在初始化画一次，这里为了保险重绘)
+    if not canvas.find_withtag("bg"):
+        draw_board_background(canvas)
 
-    # 绑定鼠标左键点击事件
-    canvas.bind("<Button-1>", on_click)
+    # 2. 棋子层 (顶层)
+    draw_pieces(canvas, board)
     
-    # 5. 启动事件循环
-    print("界面已启动，尝试点击棋盘格点...")
-    ui["root"].mainloop()
+    # 3. 提示层
+    if legal_moves:
+        draw_legal_targets(canvas, legal_moves)
+    else:
+        canvas.delete("targets")
+        
+    # 4. 选中层
+    if selected_pos:
+        draw_selection(canvas, *selected_pos)
+    else:
+        canvas.delete("selection")
+        
+    
+
+def show_message(title, message):
+    """
+    职责：弹出轻提示或终局提示。
+    """
+    from tkinter import messagebox
+    messagebox.showinfo(title, message)
 
 
 
 if __name__ == "__main__":
-    main()
+    pass
