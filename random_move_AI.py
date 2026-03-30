@@ -19,7 +19,7 @@ def random_move(board, steps = 200, side = chessboard.RED):
         move = random_move_ai(board, current_side)
         print(f"Step {step}: {current_side} moves {move}")
         if move is None:
-            print(f"Game over at step {step}. Winner: {rules.winner(board)}")
+            print(f"Game over at step {step}. Winner: {rules.winner(board, current_side)}")
             return
         board = moves.make_move_copy(board, move)
         current_side = chessboard.BLACK if current_side == chessboard.RED else chessboard.RED

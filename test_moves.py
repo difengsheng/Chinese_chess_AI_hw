@@ -1,6 +1,7 @@
 # test_moves.py
 import chessboard
 import moves
+import rules
 
 
 def test_initial_board_no_move():
@@ -188,6 +189,35 @@ def test_generate_legal_moves():
     print(f"PASS: generate legal moves red={len(red_moves)} black={len(black_moves)}")
 
 
+def test_winner_when_king_missing():
+    """If a king is captured, that side loses immediately."""
+    board = chessboard.init_board()
+    board[0][4] = chessboard.EMPTY
+    assert rules.winner(board) == chessboard.RED
+
+    board = chessboard.init_board()
+    board[9][4] = chessboard.EMPTY
+    assert rules.winner(board) == chessboard.BLACK
+
+    print("PASS: winner by missing king")
+
+
+def test_winner_when_no_legal_moves_for_side_to_move():
+    """If side to move has no legal moves, that side loses."""
+    board = [[chessboard.EMPTY for _ in range(chessboard.BOARD_COLS)] for _ in range(chessboard.BOARD_ROWS)]
+    board[0][0] = "bK"
+    board[9][4] = "rK"
+    board[8][4] = "bR"
+    board[8][0] = "bR"
+    board[0][3] = "bR"
+    board[0][5] = "bR"
+
+    assert len(moves.generate_legal_moves(board, chessboard.RED)) == 0
+    assert rules.winner(board, chessboard.RED) == chessboard.BLACK
+
+    print("PASS: winner by no legal moves for side to move")
+
+
 def run_all_tests():
     test_initial_board_no_move()
     test_king_moves()
@@ -200,6 +230,8 @@ def run_all_tests():
     test_king_face_to_face()
     test_self_check()
     test_generate_legal_moves()
+    test_winner_when_king_missing()
+    test_winner_when_no_legal_moves_for_side_to_move()
     print("\nALL TESTS PASSED")
 
 
