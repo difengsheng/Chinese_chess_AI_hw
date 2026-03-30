@@ -5,9 +5,9 @@
 
 
 from . import show
-import chessboard
-import moves
-import rules
+from basic import chessboard
+from basic import moves
+from basic import rules
 import random
 
 # 假设你的可视化函数都在这个文件里，或者你可以根据实际文件名导入

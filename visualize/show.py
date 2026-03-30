@@ -7,8 +7,8 @@
 
 import tkinter as tk
 from tkinter import ttk
-import chessboard
-import moves
+from basic import chessboard
+from basic import moves
 
 
 # 基础 UI 配置

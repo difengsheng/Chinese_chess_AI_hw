@@ -1,8 +1,8 @@
 import random
 
-import chessboard
-import moves
-import rules
+from basic import chessboard
+from basic import moves
+from basic import rules
 from visualize import show
 
 
