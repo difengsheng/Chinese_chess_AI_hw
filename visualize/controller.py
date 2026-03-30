@@ -83,9 +83,9 @@ class ChessController:
         self.board = moves.make_move_copy(self.board, move)
         self.selected_pos = None
         self.legal_targets = []
+        self.refresh_ui()
         
         if self.check_game_over():
-            self.refresh_ui()
             return
 
         self.switch_side()
@@ -93,7 +93,8 @@ class ChessController:
 
     def check_game_over(self):
         """职责：调用 winner 判定是否终局；终局则锁定输入。"""
-        win_side = rules.winner(self.board, self.current_side)
+        check_side = chessboard.BLACK if self.current_side == chessboard.RED else chessboard.RED
+        win_side = rules.winner(self.board, check_side)
         if win_side:
             self.game_over = True
             msg = "红方胜！" if win_side == chessboard.RED else "黑方胜！"
