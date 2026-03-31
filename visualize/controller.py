@@ -40,7 +40,8 @@ class ChessController:
         if self.game_over:
             return
             
-        if hasattr(self, "human_side") and self.current_side != self.human_side:
+        # 如果是 AI 对战 AI 模式，或者还没轮到人类回合，就不接收点击
+        if getattr(self, "game_mode", "") == 'AvA' or (hasattr(self, "human_side") and self.current_side != self.human_side):
             return
 
         pos = show.pixel_to_board(event.x, event.y) # 调用之前定义的坐标转换
@@ -116,20 +117,24 @@ class ChessController:
             self.ui["status_var"].set("等待AI思考走子...")
             self.ui["root"].update()
             
-            ai_move = mms.minmax_search(self.board, self.current_side, depth=3, time_limit=30)[0]
+            ai_move = mms.minmax_search(self.board, self.current_side, depth=3, time_limit=15)[0]
             self.apply_move_and_refresh(ai_move)
             
             if not self.game_over:
                 next_turn_str = "红方走" if self.current_side == chessboard.RED else "黑方走"
                 self.ui["status_var"].set(next_turn_str)
+                
+                # 如果是 AI vs AI 模式，AI走完直接触发下一个AI互搏回合
+                if getattr(self, "game_mode", "") == 'AvA':
+                    self.ui["root"].after(100, self.run_ai_turn)
 
     def reset_game(self):
         """职责：恢复初始状态并重绘。"""
-        self.human_side = show.ask_user_side()
+        self.game_mode, self.human_side = show.ask_user_side()
         self.create_initial_state()
         self.ui["status_var"].set("红方先行")
         self.refresh_ui()
-        if self.human_side == chessboard.BLACK:
+        if self.game_mode == 'AvA' or self.human_side == chessboard.BLACK:
             self.ui["root"].after(500, self.run_ai_turn)
 
     def switch_side(self):

@@ -174,16 +174,23 @@ def draw_pieces(canvas, board):
 
 def ask_user_side():
     """
-    弹窗询问玩家选择红方还是黑方
-    返回: chessboard.RED (1) 或 chessboard.BLACK (-1)
+    弹窗询问玩家选择游戏模式和阵营
+    返回两个值: 
+    game_mode: 'HvA' (人机) 或 'AvA' (机机)
+    human_side: chessboard.RED, chessboard.BLACK, 或 None (如果是AvA)
     """
-    # askyesno 返回 True(是) 或 False(否)
     from tkinter import messagebox
-    ans = messagebox.askyesno("选择阵营", "你想作为红方（先行）吗？\n点击'是'选红方，'否'选黑方。")
+    
+    # 询问是否是AI对战AI
+    is_ava = messagebox.askyesno("选择模式", "你想观看AI对战AI吗？\n点击'是'进入AI自动对局，'否'进入人机对战。")
+    if is_ava:
+        return 'AvA', None
+        
+    ans = messagebox.askyesno("选择阵营", "人机模式：你想作为红方（先行）吗？\n点击'是'选红方，'否'选黑方。")
     if ans:
-        return chessboard.RED
+        return 'HvA', chessboard.RED
     else:
-        return chessboard.BLACK
+        return 'HvA', chessboard.BLACK
 
 
 

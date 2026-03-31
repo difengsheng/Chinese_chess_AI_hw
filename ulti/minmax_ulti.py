@@ -76,6 +76,43 @@ def _evaluate_knight_position(board, r, c, side):
     return bonus
 
 
+def _evaluate_king_safety(board, side):
+    """【新增加】评估将帅的安全性。将周围如果有对方棋子则扣分，被本方保护则加分。"""
+    king_pos = moves.find_king(board, side)
+    if not king_pos:
+        return -10000
+    kr, kc = king_pos
+    safety_score = 0
+    
+    enemy_side = chessboard.BLACK if side == chessboard.RED else chessboard.RED
+    # 距离将帅很近的地方如果有敌方棋子，严重扣分
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            nr, nc = kr + dr, kc + dc
+            if chessboard.in_board(nr, nc):
+                piece = board[nr][nc]
+                if piece != chessboard.EMPTY and chessboard.side_of_piece(piece) == enemy_side:
+                    safety_score -= 80
+                elif piece != chessboard.EMPTY and chessboard.side_of_piece(piece) == side:
+                    safety_score += 15 # 有己方棋子挨着，稍加安全性
+    return safety_score
+
+def _evaluate_mobility(board, side):
+    """【新增加】机动性评估：合法着法的数量。由于走法越多的情况越灵活，予以适当加分。"""
+    # 每多一个合法走步，奖励2分
+    legal_moves_count = len(moves.generate_legal_moves(board, side))
+    return legal_moves_count * 2
+
+def _evaluate_defense_structure(board, side):
+    """【新增加】防御结构评估：士象如果连在一起有保卫关系，给与加分"""
+    defense_score = 0
+    # 具体的士象双全判定较为繁琐，简易实现为存活数量的非线性加成
+    counts = _count_pieces(board, side)
+    if counts['A'] == 2: defense_score += 30 # 双士全
+    if counts['B'] == 2: defense_score += 30 # 双象全
+    return defense_score
+
+
 def _mvv_lva_score(board, move):
     """MVV-LVA (Most Valuable Victim - Least Valuable Attacker)评分。
     
