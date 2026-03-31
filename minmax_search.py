@@ -10,7 +10,11 @@ import time
 # 基础子力价值（权重会动态调整）
 
 
-def evaluate_board(board):
+def evaluate_board(board, 
+                   king_safety_eval = False,
+                   protection_eval = False, 
+                   defense_eval = False,
+                   moves_eval = False):
     """扩展评估函数：包含6个维度的综合评估。
     
     维度包括：
@@ -29,6 +33,8 @@ def evaluate_board(board):
     black_material = 0
     red_position = 0
     black_position = 0
+
+    total_score = 0
     
     # 计算基础棋子价值 + 位置价值
     for r in range(chessboard.BOARD_ROWS):
@@ -56,31 +62,32 @@ def evaluate_board(board):
                 black_position += position_bonus
     
     # 将安全性评估
-    red_king_safety = mmtl._evaluate_king_safety(board, chessboard.RED)
-    black_king_safety = mmtl._evaluate_king_safety(board, chessboard.BLACK)
+    if king_safety_eval:
+        red_king_safety = mmtl._evaluate_king_safety(board, chessboard.RED)
+        black_king_safety = mmtl._evaluate_king_safety(board, chessboard.BLACK)
+        total_score += (red_king_safety - black_king_safety)
     
     # 防御结构评估
-    red_defense = mmtl._evaluate_defense_structure(board, chessboard.RED)
-    black_defense = mmtl._evaluate_defense_structure(board, chessboard.BLACK)
-    
+    if defense_eval:
+        red_defense = mmtl._evaluate_defense_structure(board, chessboard.RED)
+        black_defense = mmtl._evaluate_defense_structure(board, chessboard.BLACK)
+        total_score += (red_defense - black_defense)
+
     # 棋子保护关系评估
-    red_protection = mmtl._evaluate_piece_protection(board, chessboard.RED)
-    black_protection = mmtl._evaluate_piece_protection(board, chessboard.BLACK)
+    if protection_eval:
+        red_protection = mmtl._evaluate_piece_protection(board, chessboard.RED)
+        black_protection = mmtl._evaluate_piece_protection(board, chessboard.BLACK)
+        total_score += (red_protection - black_protection)
     
     # 机动性评估（合法步数差）
-    red_moves = moves.generate_legal_moves(board, chessboard.RED)
-    black_moves = moves.generate_legal_moves(board, chessboard.BLACK)
-    mobility_bonus = (len(red_moves) - len(black_moves)) * 5
+    if moves_eval:
+        red_moves = len(moves.generate_legal_moves(board, chessboard.RED))
+        black_moves = len(moves.generate_legal_moves(board, chessboard.BLACK))
+        total_score += (red_moves - black_moves) * 5  # 每多一个合法着法加5分
     
     # 综合评分（红方视角）
-    total_score = (
-        (red_material - black_material) +           # 子力差
-        (red_position - black_position) +           # 位置价值差
-        (red_king_safety - black_king_safety) +     # 将安全性差
-        (red_defense - black_defense) +             # 防御结构差
-        (red_protection - black_protection) +       # 棋子保护差
-        mobility_bonus                               # 机动性差
-    )
+    total_score += ((red_material - black_material) 
+                    + (red_position - black_position) )
     
     return total_score
 
