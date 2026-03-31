@@ -10,6 +10,11 @@ PIECE_VALUES_BASE = {
     'A': 200,   'B': 200, 'P': 100
 }
 
+# 全局历史启发表：记录过去搜索中表现好的着法
+# 键：(from_r, from_c, to_r, to_c)
+# 值：该着法的累积启发值（越高越好）
+history_heuristic = {}
+
 
 def _count_pieces(board, side):
     """统计某一方各类棋子数量。"""
@@ -71,106 +76,78 @@ def _evaluate_knight_position(board, r, c, side):
     return bonus
 
 
-def _evaluate_king_safety(board, side):
-    """评估将的安全性（周围士象防护）。"""
-    king_pos = moves.find_king(board, side)
-    if not king_pos:
-        return 0
+def _mvv_lva_score(board, move):
+    """MVV-LVA (Most Valuable Victim - Least Valuable Attacker)评分。
     
-    kr, kc = king_pos
-    safety_bonus = 0
+    返回值越高，着法优先级越高。
+    公式: 被吃棋子价值 * 1000 - 攻击者价值
+    这样优先搜索"小子吃大子"的着法。
+    """
+    target_piece = board[move.to_r][move.to_c]
     
-    # 检查九宫内士象数量
-    advisor_count = 0
-    elephant_count = 0
+    # 不是吃子着法，返回-1000（最低优先级）
+    if target_piece == chessboard.EMPTY:
+        return -1000
     
-    for r in range(chessboard.BOARD_ROWS):
-        for c in range(chessboard.BOARD_COLS):
-            piece = board[r][c]
-            if piece != chessboard.EMPTY and chessboard.side_of_piece(piece) == side:
-                ptype = chessboard.type_of_piece(piece)
-                if ptype == 'A':  # 士
-                    advisor_count += 1
-                    safety_bonus += 30
-                elif ptype == 'B':  # 象
-                    elephant_count += 1
-                    safety_bonus += 25
+    # 获取被吃棋子的价值
+    victim_type = chessboard.type_of_piece(target_piece)
+    victim_value = PIECE_VALUES_BASE.get(victim_type, 0)
     
-    # 将周围有士象更安全
-    if advisor_count >= 2 and elephant_count >= 2:
-        safety_bonus += 50
+    # 获取攻击者的价值（更低更优先）
+    attacker_piece = board[move.from_r][move.from_c]
+    attacker_type = chessboard.type_of_piece(attacker_piece)
+    attacker_value = PIECE_VALUES_BASE.get(attacker_type, 0)
     
-    return safety_bonus
+    # MVV-LVA评分：被吃价值 * 1000 - 攻击者价值
+    # 这样同一个被吃棋子下，用低价值的攻击者优先
+    return victim_value * 1000 - attacker_value
 
 
-def _evaluate_defense_structure(board, side):
-    """评估士象防御结构的完整性。"""
-    bonus = 0
-    advisor_count = 0
-    elephant_count = 0
+def _sort_moves_with_heuristics(board, moves_list):
+    """使用多层启发式排序着法。
     
-    for r in range(chessboard.BOARD_ROWS):
-        for c in range(chessboard.BOARD_COLS):
-            piece = board[r][c]
-            if piece != chessboard.EMPTY and chessboard.side_of_piece(piece) == side:
-                ptype = chessboard.type_of_piece(piece)
-                if ptype == 'A':
-                    advisor_count += 1
-                elif ptype == 'B':
-                    elephant_count += 1
+    优先级从高到低：
+    1. 历史启发：过去表现好的着法
+    2. MVV-LVA：小子吃大子的着法
+    3. 吃子优先：有任何吃子
+    """
+    def move_sort_key(move):
+        move_tuple = (move.from_r, move.from_c, move.to_r, move.to_c)
+        
+        # 历史启发值（有记录则取值，无则为0）
+        history_value = history_heuristic.get(move_tuple, 0)
+        
+        # MVV-LVA评分
+        mvv_lva = _mvv_lva_score(board, move)
+        
+        # 是否是吃子着法
+        is_capture = board[move.to_r][move.to_c] != chessboard.EMPTY
+        
+        # 返回排序键（元组：按优先级从高到低）
+        # Python会从左到右比较元组元素，倒序排列（reverse=True）
+        return (history_value, mvv_lva, is_capture)
     
-    # 完整的防御结构（2士2象）加分
-    if advisor_count == 2:
-        bonus += 40
-    if elephant_count == 2:
-        bonus += 40
-    
-    return bonus
+    return sorted(moves_list, key=move_sort_key, reverse=True)
 
 
-def _evaluate_piece_protection(board, side):
-    """评估棋子是否被保护（减少白送）。"""
-    protection_bonus = 0
-    opponent_side = chessboard.BLACK if side == chessboard.RED else chessboard.RED
+def _update_history_heuristic(move, depth, is_cutoff=False):
+    """更新历史启发表。
     
-    for r in range(chessboard.BOARD_ROWS):
-        for c in range(chessboard.BOARD_COLS):
-            piece = board[r][c]
-            if piece == chessboard.EMPTY or chessboard.side_of_piece(piece) != side:
-                continue
-            
-            # 检查该棋子是否被对方攻击
-            is_attacked = False
-            for opp_r in range(chessboard.BOARD_ROWS):
-                for opp_c in range(chessboard.BOARD_COLS):
-                    opp_piece = board[opp_r][opp_c]
-                    if opp_piece != chessboard.EMPTY and chessboard.side_of_piece(opp_piece) == opponent_side:
-                        attack_move = moves.Move(opp_r, opp_c, r, c)
-                        if moves.is_valid_move(board, attack_move, opponent_side):
-                            is_attacked = True
-                            break
-                if is_attacked:
-                    break
-            
-            # 如果被攻击但被己方保护，减少惩罚
-            if is_attacked:
-                # 检查是否被己方保护
-                is_protected = False
-                for prot_r in range(chessboard.BOARD_ROWS):
-                    for prot_c in range(chessboard.BOARD_COLS):
-                        prot_piece = board[prot_r][prot_c]
-                        if prot_piece != chessboard.EMPTY and chessboard.side_of_piece(prot_piece) == side:
-                            protect_move = moves.Move(prot_r, prot_c, r, c)
-                            if moves.is_valid_move(board, protect_move, side):
-                                is_protected = True
-                                break
-                    if is_protected:
-                        break
-                
-                if is_protected:
-                    protection_bonus += 20  # 被保护的棋子加分
-    
-    return protection_bonus
+    Args:
+        move: 着法
+        depth: 当前搜索深度
+        is_cutoff: 是否产生了剪枝（Beta剪枝）
+    """
+    if is_cutoff:
+        move_tuple = (move.from_r, move.from_c, move.to_r, move.to_c)
+        # 深度越大（接近根节点）剪枝，启发值越高
+        history_heuristic[move_tuple] = history_heuristic.get(move_tuple, 0) + depth * depth
+
+
+def reset_history_heuristic():
+    """重置历史启发表（用于多局游戏）。"""
+    global history_heuristic
+    history_heuristic = {}
 
 
 if __name__ == "__main__":

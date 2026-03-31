@@ -118,6 +118,10 @@ def _alphabeta_search(board, side = chessboard.RED, depth = 0, alpha = float('-i
         return None, evaluate_board(board)
 
     legal_moves = moves.generate_legal_moves(board, side)
+    
+    # 使用多层启发式排序：历史启发 > MVV-LVA > 吃子优先
+    legal_moves = mmtl._sort_moves_with_heuristics(board, legal_moves)
+    
     if not legal_moves:
         # 没有合法着法，当前方输
         return None, float('-inf') if side == chessboard.RED else float('inf')
@@ -139,7 +143,9 @@ def _alphabeta_search(board, side = chessboard.RED, depth = 0, alpha = float('-i
             # Alpha-Beta 剪枝
             alpha = max(alpha, max_value)
             if beta <= alpha:
-                break  # 剪枝：对手不会走到这个分支
+                # Beta剪枝：对手不会走到这个分支，更新历史启发表
+                mmtl._update_history_heuristic(move, depth, is_cutoff=True)
+                break
         
         return best_move, max_value
     else:
@@ -156,7 +162,9 @@ def _alphabeta_search(board, side = chessboard.RED, depth = 0, alpha = float('-i
             # Alpha-Beta 剪枝
             beta = min(beta, min_value)
             if beta <= alpha:
-                break  # 剪枝：当前玩家已不会走到更差方案
+                # 剪枝：当前玩家已不会走到更差方案，更新历史启发表
+                mmtl._update_history_heuristic(move, depth, is_cutoff=True)
+                break
         
         return best_move, min_value
 
@@ -164,6 +172,11 @@ def _alphabeta_search(board, side = chessboard.RED, depth = 0, alpha = float('-i
 def minmax_search(board, side, depth):
     """MinMax 搜索入口函数：返回最佳着法和对应的评估值。"""
     return _alphabeta_search(board, side, depth, float('-inf'), float('inf'))
+
+
+def reset_search_heuristics():
+    """重置搜索启发式表（用于新局或多局游戏）。"""
+    mmtl.reset_history_heuristic()
 
 
 if __name__ == "__main__":
