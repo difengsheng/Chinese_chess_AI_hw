@@ -113,8 +113,15 @@ class ChessController:
         
         legal_moves = moves.generate_legal_moves(self.board, self.current_side)
         if legal_moves:
-            ai_move = mms.minmax_search(self.board, self.current_side, depth=3)[0]
+            self.ui["status_var"].set("等待AI思考走子...")
+            self.ui["root"].update()
+            
+            ai_move = mms.minmax_search(self.board, self.current_side, depth=3, time_limit=30)[0]
             self.apply_move_and_refresh(ai_move)
+            
+            if not self.game_over:
+                next_turn_str = "红方走" if self.current_side == chessboard.RED else "黑方走"
+                self.ui["status_var"].set(next_turn_str)
 
     def reset_game(self):
         """职责：恢复初始状态并重绘。"""
