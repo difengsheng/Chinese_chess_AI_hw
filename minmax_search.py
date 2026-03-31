@@ -3,32 +3,86 @@ from basic import moves
 from basic import rules
 from visualize import show
 from visualize.controller import ChessController
+from ulti import minmax_ulti as mmtl
 import time
 
 
+# 基础子力价值（权重会动态调整）
+
 
 def evaluate_board(board):
-    """评估函数：简单计算双方棋子数量差作为评估值。"""
-
-    # 这里我们给每种棋子赋分
-    piece_values = {
-        "K": 1000, "A": 2, "B": 3, "N": 4, "R": 6, "C": 5, "P": 1,
-    }
-
-    red_score = 0
-    black_score = 0
-
+    """扩展评估函数：包含6个维度的综合评估。
+    
+    维度包括：
+    1. 基础棋子价值
+    2. 位置价值（兵过河、马中心、将安全）
+    3. 机动性项（合法步数差）
+    4. 防御结构（士象完整性）
+    5. 动态子力价值（根据残局调整权重）
+    6. 棋子保护关系
+    """
+    
+    # 获取动态棋子价值
+    piece_values = mmtl._get_dynamic_piece_values(board)
+    
+    red_material = 0
+    black_material = 0
+    red_position = 0
+    black_position = 0
+    
+    # 计算基础棋子价值 + 位置价值
     for r in range(chessboard.BOARD_ROWS):
         for c in range(chessboard.BOARD_COLS):
             piece = board[r][c]
-            if piece != chessboard.EMPTY:
-                value = piece_values[chessboard.type_of_piece(piece)]
-                if chessboard.side_of_piece(piece) == chessboard.RED:
-                    red_score += value
-                else:
-                    black_score += value
-
-    return (red_score - black_score)
+            if piece == chessboard.EMPTY:
+                continue
+            
+            ptype = chessboard.type_of_piece(piece)
+            side = chessboard.side_of_piece(piece)
+            base_value = piece_values[ptype]
+            position_bonus = 0
+            
+            # 位置价值加分
+            if ptype == 'P':  # 兵
+                position_bonus = mmtl._evaluate_pawn_position(board, r, c, side)
+            elif ptype == 'N':  # 马
+                position_bonus = mmtl._evaluate_knight_position(board, r, c, side)
+            
+            if side == chessboard.RED:
+                red_material += base_value
+                red_position += position_bonus
+            else:
+                black_material += base_value
+                black_position += position_bonus
+    
+    # 将安全性评估
+    red_king_safety = mmtl._evaluate_king_safety(board, chessboard.RED)
+    black_king_safety = mmtl._evaluate_king_safety(board, chessboard.BLACK)
+    
+    # 防御结构评估
+    red_defense = mmtl._evaluate_defense_structure(board, chessboard.RED)
+    black_defense = mmtl._evaluate_defense_structure(board, chessboard.BLACK)
+    
+    # 棋子保护关系评估
+    red_protection = mmtl._evaluate_piece_protection(board, chessboard.RED)
+    black_protection = mmtl._evaluate_piece_protection(board, chessboard.BLACK)
+    
+    # 机动性评估（合法步数差）
+    red_moves = moves.generate_legal_moves(board, chessboard.RED)
+    black_moves = moves.generate_legal_moves(board, chessboard.BLACK)
+    mobility_bonus = (len(red_moves) - len(black_moves)) * 5
+    
+    # 综合评分（红方视角）
+    total_score = (
+        (red_material - black_material) +           # 子力差
+        (red_position - black_position) +           # 位置价值差
+        (red_king_safety - black_king_safety) +     # 将安全性差
+        (red_defense - black_defense) +             # 防御结构差
+        (red_protection - black_protection) +       # 棋子保护差
+        mobility_bonus                               # 机动性差
+    )
+    
+    return total_score
 
 
 
