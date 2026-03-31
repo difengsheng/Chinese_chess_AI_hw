@@ -8,6 +8,7 @@ from . import show
 from basic import chessboard
 from basic import moves
 from basic import rules
+import minmax_search as mms
 import random
 
 # 假设你的可视化函数都在这个文件里，或者你可以根据实际文件名导入
@@ -37,6 +38,9 @@ class ChessController:
     def on_canvas_click(self, event):
         """职责：统一处理点击逻辑，分派到选子或落子流程。"""
         if self.game_over:
+            return
+            
+        if hasattr(self, "human_side") and self.current_side != self.human_side:
             return
 
         pos = show.pixel_to_board(event.x, event.y) # 调用之前定义的坐标转换
@@ -69,8 +73,8 @@ class ChessController:
             move = moves.Move(self.selected_pos[0], self.selected_pos[1], to_r, to_c)
             self.apply_move_and_refresh(move)
             
-            if not self.game_over and self.current_side == chessboard.BLACK:
-                # 轮到黑方（假设黑方是AI）
+            if not self.game_over and self.current_side != self.human_side:
+                # 轮到AI方
                 self.ui["root"].after(500, self.run_ai_turn) 
         else:
             # 点击了非法位置，取消选中
@@ -109,14 +113,17 @@ class ChessController:
         
         legal_moves = moves.generate_legal_moves(self.board, self.current_side)
         if legal_moves:
-            ai_move = random.choice(legal_moves)
+            ai_move = mms.minmax_search(self.board, self.current_side, depth=3)[0]
             self.apply_move_and_refresh(ai_move)
 
     def reset_game(self):
         """职责：恢复初始状态并重绘。"""
+        self.human_side = show.ask_user_side()
         self.create_initial_state()
         self.ui["status_var"].set("红方先行")
         self.refresh_ui()
+        if self.human_side == chessboard.BLACK:
+            self.ui["root"].after(500, self.run_ai_turn)
 
     def switch_side(self):
         """职责：红黑方切换的单一出口函数。"""

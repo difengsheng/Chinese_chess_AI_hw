@@ -172,6 +172,21 @@ def draw_pieces(canvas, board):
 
 
 
+def ask_user_side():
+    """
+    弹窗询问玩家选择红方还是黑方
+    返回: chessboard.RED (1) 或 chessboard.BLACK (-1)
+    """
+    # askyesno 返回 True(是) 或 False(否)
+    from tkinter import messagebox
+    ans = messagebox.askyesno("选择阵营", "你想作为红方（先行）吗？\n点击'是'选红方，'否'选黑方。")
+    if ans:
+        return chessboard.RED
+    else:
+        return chessboard.BLACK
+
+
+
 def draw_selection(canvas, r, c):
     """
     职责：高亮当前选中的棋子。
