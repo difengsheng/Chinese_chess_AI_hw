@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-import chessboard
+from . import chessboard
 
 
 @dataclass(frozen=True)

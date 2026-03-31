@@ -1,5 +1,5 @@
-import moves
-import chessboard
+from . import moves
+from . import chessboard
 
 '''将死相关的函数。'''
 
