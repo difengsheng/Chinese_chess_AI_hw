@@ -1,7 +1,7 @@
 from basic import chessboard
 from basic import moves
 from basic import rules
-
+import time
 
 
 
@@ -138,6 +138,114 @@ def _mvv_lva_score(board, move):
     # MVV-LVA评分：被吃价值 * 1000 - 攻击者价值
     # 这样同一个被吃棋子下，用低价值的攻击者优先
     return victim_value * 1000 - attacker_value
+
+
+def evaluate_board(board,
+                   king_safety_eval = True,
+                   defense_eval = True,
+                   moves_eval = True):
+    """扩展评估函数：包含多个维度的综合评估。"""
+
+    piece_values = _get_dynamic_piece_values(board)
+
+    red_material = 0
+    black_material = 0
+    red_position = 0
+    black_position = 0
+
+    total_score = 0
+
+    for r in range(chessboard.BOARD_ROWS):
+        for c in range(chessboard.BOARD_COLS):
+            piece = board[r][c]
+            if piece == chessboard.EMPTY:
+                continue
+
+            ptype = chessboard.type_of_piece(piece)
+            side = chessboard.side_of_piece(piece)
+            base_value = piece_values[ptype]
+            position_bonus = 0
+
+            if ptype == "P":  
+                position_bonus = _evaluate_pawn_position(board, r, c, side)
+            elif ptype == "N":  
+                position_bonus = _evaluate_knight_position(board, r, c, side)
+
+            if side == chessboard.RED:
+                red_material += base_value
+                red_position += position_bonus
+            else:
+                black_material += base_value
+                black_position += position_bonus
+
+    if king_safety_eval:
+        red_king_safety = _evaluate_king_safety(board, chessboard.RED)   
+        black_king_safety = _evaluate_king_safety(board, chessboard.BLACK)
+        total_score += (red_king_safety - black_king_safety)
+
+    if defense_eval:
+        red_defense = _evaluate_defense_structure(board, chessboard.RED) 
+        black_defense = _evaluate_defense_structure(board, chessboard.BLACK)
+        total_score += (red_defense - black_defense)
+
+    if moves_eval:
+        red_moves = _evaluate_mobility(board, chessboard.RED)    
+        black_moves = _evaluate_mobility(board, chessboard.BLACK)
+        total_score += (red_moves - black_moves)
+
+    total_score += ((red_material - black_material) + (red_position - black_position))
+
+    return total_score
+
+
+def _quiescence_search(board, side, alpha, beta, q_depth, start_time, time_limit):
+    if start_time is not None and time_limit is not None:
+        if time.time() - start_time > time_limit:
+            return evaluate_board(board)
+
+    stand_pat = evaluate_board(board)
+
+    if side == chessboard.RED:
+        if stand_pat > alpha:
+            alpha = stand_pat
+        if stand_pat >= beta:
+            return stand_pat
+    else:
+        if stand_pat < beta:
+            beta = stand_pat
+        if stand_pat <= alpha:
+            return stand_pat
+
+    if q_depth <= 0:
+        return stand_pat
+
+    legal_moves = moves.generate_legal_moves(board, side)
+    capture_moves = [m for m in legal_moves if board[m.to_r][m.to_c] != chessboard.EMPTY]
+
+    if not capture_moves:
+        return stand_pat
+
+    capture_moves = _sort_moves_with_heuristics(board, capture_moves)
+    opponent_side = chessboard.BLACK if side == chessboard.RED else chessboard.RED
+
+    if side == chessboard.RED:
+        for move in capture_moves:
+            new_board = moves.make_move_copy(board, move)
+            score = _quiescence_search(new_board, opponent_side, alpha, beta, q_depth - 1, start_time, time_limit)
+            if score >= beta:
+                return score
+            if score > alpha:
+                alpha = score
+        return alpha
+    else:
+        for move in capture_moves:
+            new_board = moves.make_move_copy(board, move)
+            score = _quiescence_search(new_board, opponent_side, alpha, beta, q_depth - 1, start_time, time_limit)
+            if score <= alpha:
+                return score
+            if score < beta:
+                beta = score
+        return beta
 
 
 def _sort_moves_with_heuristics(board, moves_list):
