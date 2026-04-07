@@ -36,7 +36,7 @@
 ## 3. 运行环境
 
 - 操作系统：Windows
-- Python 版本：Python 3.x
+- Python 版本：Python 3.10
 - 依赖库：
   - `tkinter`：用于构建可视化用户界面（Python 标准库自带）
   - 标准库包：`time`, `random` 等
@@ -73,7 +73,7 @@ Chinese_chess_AI_hw/
 ### 5.1 获取代码
 
 ```bash
-git clone <你的仓库地址>
+git clone https://github.com/difengsheng/Chinese_chess_AI_hw
 cd Chinese_chess_AI_hw
 ```
 
